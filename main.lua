@@ -39,6 +39,8 @@ require 'Paddle'
 -- but which will mechanically function very differently
 require 'Ball'
 
+require 'Boost'
+
 -- size of our actual window
 WINDOW_WIDTH = 1280
 WINDOW_HEIGHT = 720
@@ -97,9 +99,18 @@ function love.load()
     -- place a ball in the middle of the screen
     ball = Ball(VIRTUAL_WIDTH / 2 - 2, VIRTUAL_HEIGHT / 2 - 2, 4, 4)
 
+    --Boost for ball
+    boost = Boost(math.random(50,400), math.random(40,300), 7, 7)
+
     -- initialize score variables
     player1Score = 0
     player2Score = 0
+
+    player1ScoreOld = player1Score
+    player2ScoreOld = player2Score
+
+    time = love.timer.getTime( )
+    timeOld = time
 
     -- either going to be 1 or 2; whomever is scored on gets to serve the
     -- following turn
@@ -136,6 +147,7 @@ end
     across system hardware.
 ]]
 function love.update(dt)
+    time= love.timer.getTime()
     if gameState == 'serve' then
         -- before switching to play, initialize ball's velocity based
         -- on player who last scored
@@ -174,6 +186,24 @@ function love.update(dt)
             end
 
             sounds['paddle_hit']:play()
+        end
+
+        if boost:collides(ball) then
+          ball.vel = true
+          boost.view = false
+          timeOld = love.timer.getTime()
+        end
+
+        --Control boost effects
+        if (time - timeOld) > 30 then
+          ball.vel = false
+          boost.view = true
+          timeOld = love.timer.getTime()
+        end
+
+        --Control spown Boost
+        if (time -timeOld) > 150 then
+          boost:update()
         end
 
         -- detect upper and lower screen boundary collision, playing a sound
@@ -339,6 +369,7 @@ function love.draw()
     player1:render()
     player2:render()
     ball:render()
+    boost:render()
 
     -- display FPS for debugging; simply comment out to remove
     displayFPS()

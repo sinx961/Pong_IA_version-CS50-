@@ -14,12 +14,14 @@
 
 Ball = Class{}
 
-function Ball:init(x, y, width, height)
+
+function Ball:init(x, y)
+    self.ballImage = love.graphics.newImage('resources/fancy-ball.png')
     self.vel = false
     self.x = x
     self.y = y
-    self.width = width
-    self.height = height
+    self.width = self.ballImage:getWidth()
+    self.height = self.ballImage:getHeight()
 
     -- these variables are for keeping track of our velocity on both the
     -- X and Y axis, since the ball can move in two dimensions
@@ -32,20 +34,22 @@ end
     on whether their rectangles overlap.
 ]]
 function Ball:collides(paddle)
+    
     -- first, check to see if the left edge of either is farther to the right
-    -- than the right edge of the other
+    -- than the right edge of the other or paddle.x > self.x + self.width
     if self.x > paddle.x + paddle.width or paddle.x > self.x + self.width then
         return false
     end
 
     -- then check to see if the bottom edge of either is higher than the top
-    -- edge of the other
+    -- edge of the other or paddle.y > self.y + self.height
     if self.y > paddle.y + paddle.height or paddle.y > self.y + self.height then
         return false
     end
 
     -- if the above aren't true, they're overlapping
     return true
+
 end
 
 --[[
@@ -69,5 +73,5 @@ function Ball:update(dt)
 end
 
 function Ball:render()
-    love.graphics.rectangle('fill', self.x, self.y, self.width, self.height)
+  love.graphics.draw(self.ballImage,self.x,self.y)
 end

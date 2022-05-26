@@ -1,11 +1,11 @@
 --[[
-    GD50 2018
-    Pong Remake
-
     -- Main Program --
 
-    Author: Colton Ogden
-    cogden@cs50.harvard.edu
+    Author: Simone Di Saverio
+    sinx961@gmail.com
+
+    The software is an "improved" version of the game presented 
+    by Colton Ogden in the CS50 game development course 
 
     Originally programmed by Atari in 1972. Features two
     paddles, controlled by players, with the goal of getting
@@ -22,14 +22,24 @@
 -- a more retro aesthetic
 --
 -- https://github.com/Ulydev/push
-push = require 'push'
+push = require 'lib/push'
 
 -- the "Class" library we're using will allow us to represent anything in
 -- our game as code, rather than keeping track of many disparate variables and
 -- methods
 --
 -- https://github.com/vrld/hump/blob/master/class.lua
-Class = require 'class'
+Class = require 'lib/class'
+
+
+-- import state machine abstract class
+require 'lib/StateMachine'
+-- import different state (scene) of game from folder scene
+require 'scene/TitleScreenState'
+require 'scene/ServeState'
+require 'scene/PlayState'
+require 'scene/DoneState'
+
 
 -- our Paddle class, which stores position and dimensions for each Paddle
 -- and the logic for rendering them
@@ -42,16 +52,22 @@ require 'Ball'
 require 'Boost'
 
 -- size of our actual window
-WINDOW_WIDTH = 1280
-WINDOW_HEIGHT = 720
+WINDOW_WIDTH = 800
+WINDOW_HEIGHT = 600
 
 -- size we're trying to emulate with push
-VIRTUAL_WIDTH = 432
-VIRTUAL_HEIGHT = 243
+VIRTUAL_WIDTH = 800
+VIRTUAL_HEIGHT = 600
 
 -- paddle movement speed
 PADDLE_SPEED = 200
 DIFFICULT = 5
+
+MAX_SCORE = 2
+
+
+--Background image for set playground
+local background = love.graphics.newImage('resources/fancy-court.png')
 
 --[[
     Called just once at the beginning of the game; used to set up
@@ -69,35 +85,23 @@ function love.load()
     -- seed the RNG so that calls to random are always random
     math.randomseed(os.time())
     -- initialize our nice-looking retro text fonts
-    smallFont = love.graphics.newFont('font.ttf', 8)
-    largeFont = love.graphics.newFont('font.ttf', 16)
-    scoreFont = love.graphics.newFont('font.ttf', 32)
+    smallFont = love.graphics.newFont('font.ttf', 26)
+    largeFont = love.graphics.newFont('font.ttf', 50)
+    scoreFont = love.graphics.newFont('font.ttf', 45)
     love.graphics.setFont(smallFont)
 
-    -- set up our sound effects; later, we can just index this table and
-    -- call each entry's `play` method
-    sounds = {
-        ['paddle_hit'] = love.audio.newSource('sounds/paddle_hit.wav', 'static'),
-        ['score'] = love.audio.newSource('sounds/score.wav', 'static'),
-        ['wall_hit'] = love.audio.newSource('sounds/wall_hit.wav', 'static')
+    -- initialize state machine with all state-returning functions
+    gStateMachine = StateMachine {
+        ['title'] = function() return TitleScreenState() end,
+        ['serve'] = function() return ServeState() end,
+        ['play'] = function() return PlayState() end,
+        ['done'] = function() return DoneState() end
     }
+    gStateMachine:change('title')
 
-    -- initialize our virtual resolution, which will be rendered within our
-    -- actual window no matter its dimensions
-    push:setupScreen(VIRTUAL_WIDTH, VIRTUAL_HEIGHT, WINDOW_WIDTH, WINDOW_HEIGHT, {
-        fullscreen = false,
-        resizable = true,
-        vsync = true,
-        canvas = false
-    })
 
-    -- initialize our player paddles; make them global so that they can be
-    -- detected by other functions and modules
-    player1 = Paddle(10, 30, 5, 20)
-    player2 = Paddle(VIRTUAL_WIDTH - 10, VIRTUAL_HEIGHT - 30, 5, 20)
-
-    -- place a ball in the middle of the screen
-    ball = Ball(VIRTUAL_WIDTH / 2 - 2, VIRTUAL_HEIGHT / 2 - 2, 4, 4)
+    -- initialize input table
+    love.keyboard.keysPressed = {}
 
     --Boost for ball
     boost = Boost(math.random(50,400), math.random(40,300), 7, 7)
@@ -119,13 +123,6 @@ function love.load()
     -- player who won the game; not set to a proper value until we reach
     -- that state in the game
     winningPlayer = 0
-
-    -- the state of our game; can be any of the following:
-    -- 1. 'start' (the beginning of the game, before first serve)
-    -- 2. 'serve' (waiting on a key press to serve the ball)
-    -- 3. 'play' (the ball is in play, bouncing between paddles)
-    -- 4. 'done' (the game is over, with a victor, ready for restart)
-    gameState = 'start'
 end
 
 --[[
@@ -137,6 +134,28 @@ end
 function love.resize(w, h)
     push:resize(w, h)
 end
+
+--[[
+    A callback that processes key strokes as they happen, just the once.
+    Does not account for keys that are held down, which is handled by a
+    separate function (`love.keyboard.isDown`). Useful for when we want
+    things to happen right away, just once, like when we want to quit.
+]]
+function love.keypressed(key)
+
+    -- add to our table of keys pressed this frame
+    love.keyboard.keysPressed[key] = true
+
+    if key == 'escape' then
+        love.event.quit()
+    end
+
+end
+
+function love.keyboard.wasPressed(key)
+    return love.keyboard.keysPressed[key]
+end
+
 
 --[[
     Called every frame, passing in `dt` since the last frame. `dt`
@@ -255,79 +274,10 @@ function love.update(dt)
         end
     end
 
-    --
-    -- paddles can move no matter what state we're in
-    --
-    -- player 1
-    if love.keyboard.isDown('up') then
-        player1.dy = -PADDLE_SPEED
-    elseif love.keyboard.isDown('down') then
-        player1.dy = PADDLE_SPEED
-    else
-        player1.dy = 0
-    end
+    gStateMachine:update(dt)
 
-    -- player 2 bot
-    if ball.dx > 0 then
-      if ball.y > player2.y+DIFFICULT then
-        player2.dy = PADDLE_SPEED
-      elseif ball.y < player2.y-DIFFICULT then
-          player2.dy = -PADDLE_SPEED
-      else
-          player2.dy = 0
-      end
-    else
-      player2.dy = 0
-    end
+    love.keyboard.keysPressed = {}
 
-    -- update our ball based on its DX and DY only if we're in play state;
-    -- scale the velocity by dt so movement is framerate-independent
-    if gameState == 'play' then
-        ball:update(dt)
-    end
-
-    player1:update(dt)
-    player2:update(dt)
-end
-
---[[
-    A callback that processes key strokes as they happen, just the once.
-    Does not account for keys that are held down, which is handled by a
-    separate function (`love.keyboard.isDown`). Useful for when we want
-    things to happen right away, just once, like when we want to quit.
-]]
-function love.keypressed(key)
-    -- `key` will be whatever key this callback detected as pressed
-    if key == 'escape' then
-        -- the function LÖVE2D uses to quit the application
-        love.event.quit()
-    -- if we press enter during either the start or serve phase, it should
-    -- transition to the next appropriate state
-  elseif key == '1' or key == '2' or key =='3' or key=='enter' or key=='return' then
-        if gameState == 'start' and (key == '1' or key == '2' or key =='3') then
-            gameState = 'serve'
-            if  key == '1' then DIFFICULT = 2 elseif  key == '2' then DIFFICULT=5 else DIFFICULT = 8 end
-        elseif gameState == 'serve' and (key=='enter' or key=='return') then
-            gameState = 'play'
-        elseif gameState == 'done' then
-            -- game is simply in a restart phase here, but will set the serving
-            -- player to the opponent of whomever won for fairness!
-            gameState = 'serve'
-
-            ball:reset()
-
-            -- reset scores to 0
-            player1Score = 0
-            player2Score = 0
-
-            -- decide serving player as the opposite of who won
-            if winningPlayer == 1 then
-                servingPlayer = 2
-            else
-                servingPlayer = 1
-            end
-        end
-    end
 end
 
 --[[
@@ -336,46 +286,17 @@ end
 ]]
 function love.draw()
     -- begin drawing with push, in our virtual resolution
-    push:start()
+    --push:start()
 
-    love.graphics.clear(40/255, 45/255, 52/255, 255/255)
-
-    -- render different things depending on which part of the game we're in
-    if gameState == 'start' then
-        -- UI messages
-        love.graphics.setFont(smallFont)
-        love.graphics.printf('Welcome to DISAPong!', 0, 10, VIRTUAL_WIDTH, 'center')
-        love.graphics.printf('Press 1,2,3 for choose difficult and begin!', 0, 20, VIRTUAL_WIDTH, 'center')
-    elseif gameState == 'serve' then
-        -- UI messages
-        love.graphics.setFont(smallFont)
-        love.graphics.printf('Player ' .. tostring(servingPlayer) .. "'s serve!",
-            0, 10, VIRTUAL_WIDTH, 'center')
-        love.graphics.printf('Press Enter to serve!', 0, 20, VIRTUAL_WIDTH, 'center')
-    elseif gameState == 'play' then
-        -- no UI messages to display in play
-    elseif gameState == 'done' then
-        -- UI messages
-        love.graphics.setFont(largeFont)
-        love.graphics.printf('Player ' .. tostring(winningPlayer) .. ' wins!',
-            0, 10, VIRTUAL_WIDTH, 'center')
-        love.graphics.setFont(smallFont)
-        love.graphics.printf('Press Enter to restart!', 0, 30, VIRTUAL_WIDTH, 'center')
-    end
-
-    -- show the score before ball is rendered so it can move over the text
-    displayScore()
-
+    love.graphics.draw(background, 0, 0)
     player1:render()
     player2:render()
     ball:render()
     boost:render()
 
-    -- display FPS for debugging; simply comment out to remove
-    displayFPS()
+    gStateMachine:render()
 
-    -- end our drawing to push
-    push:finish()
+    --push:finish()
 end
 
 --[[
@@ -388,15 +309,4 @@ function displayScore()
         VIRTUAL_HEIGHT / 3)
     love.graphics.print(tostring(player2Score), VIRTUAL_WIDTH / 2 + 30,
         VIRTUAL_HEIGHT / 3)
-end
-
---[[
-    Renders the current FPS.
-]]
-function displayFPS()
-    -- simple FPS display across all states
-    love.graphics.setFont(smallFont)
-    love.graphics.setColor(0, 255/255, 0, 255/255)
-    love.graphics.print('FPS: ' .. tostring(love.timer.getFPS()), 10, 10)
-    love.graphics.setColor(255, 255, 255, 255)
 end

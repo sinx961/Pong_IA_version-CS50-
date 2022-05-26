@@ -49,6 +49,8 @@ require 'Paddle'
 -- but which will mechanically function very differently
 require 'Ball'
 
+require 'Boost'
+
 -- size of our actual window
 WINDOW_WIDTH = 800
 WINDOW_HEIGHT = 600
@@ -101,9 +103,18 @@ function love.load()
     -- initialize input table
     love.keyboard.keysPressed = {}
 
+    --Boost for ball
+    boost = Boost(math.random(50,400), math.random(40,300), 7, 7)
+
     -- initialize score variables
     player1Score = 0
     player2Score = 0
+
+    player1ScoreOld = player1Score
+    player2ScoreOld = player2Score
+
+    time = love.timer.getTime( )
+    timeOld = time
 
     -- either going to be 1 or 2; whomever is scored on gets to serve the
     -- following turn
@@ -155,6 +166,113 @@ end
     across system hardware.
 ]]
 function love.update(dt)
+    time= love.timer.getTime()
+    if gameState == 'serve' then
+        -- before switching to play, initialize ball's velocity based
+        -- on player who last scored
+        ball.dy = math.random(-50, 50)
+        if servingPlayer == 1 then
+            ball.dx = math.random(140, 200)
+        else
+            ball.dx = -math.random(140, 200)
+        end
+    elseif gameState == 'play' then
+        -- detect ball collision with paddles, reversing dx if true and
+        -- slightly increasing it, then altering the dy based on the position
+        -- at which it collided, then playing a sound effect
+        if ball:collides(player1) then
+            ball.dx = -ball.dx * 1.03
+            ball.x = player1.x + 5
+
+            -- keep velocity going in the same direction, but randomize it
+            if ball.dy < 0 then
+                ball.dy = -math.random(10, 150)
+            else
+                ball.dy = math.random(10, 150)
+            end
+
+            sounds['paddle_hit']:play()
+        end
+        if ball:collides(player2) then
+            ball.dx = -ball.dx * 1.03
+            ball.x = player2.x - 4
+
+            -- keep velocity going in the same direction, but randomize it
+            if ball.dy < 0 then
+                ball.dy = -math.random(10, 150)
+            else
+                ball.dy = math.random(10, 150)
+            end
+
+            sounds['paddle_hit']:play()
+        end
+
+        if boost:collides(ball) then
+          ball.vel = true
+          boost.view = false
+          timeOld = love.timer.getTime()
+        end
+
+        --Control boost effects
+        if (time - timeOld) > 30 then
+          ball.vel = false
+          boost.view = true
+          timeOld = love.timer.getTime()
+        end
+
+        --Control spown Boost
+        if (time -timeOld) > 150 then
+          boost:update()
+        end
+
+        -- detect upper and lower screen boundary collision, playing a sound
+        -- effect and reversing dy if true
+        if ball.y <= 0 then
+            ball.y = 0
+            ball.dy = -ball.dy
+            sounds['wall_hit']:play()
+        end
+
+        -- -4 to account for the ball's size
+        if ball.y >= VIRTUAL_HEIGHT - 4 then
+            ball.y = VIRTUAL_HEIGHT - 4
+            ball.dy = -ball.dy
+            sounds['wall_hit']:play()
+        end
+
+        -- if we reach the left or right edge of the screen, go back to serve
+        -- and update the score and serving player
+        if ball.x < 0 then
+            servingPlayer = 1
+            player2Score = player2Score + 1
+            sounds['score']:play()
+
+            -- if we've reached a score of 10, the game is over; set the
+            -- state to done so we can show the victory message
+            if player2Score == 10 then
+                winningPlayer = 2
+                gameState = 'done'
+            else
+                gameState = 'serve'
+                -- places the ball in the middle of the screen, no velocity
+                ball:reset()
+            end
+        end
+
+        if ball.x > VIRTUAL_WIDTH then
+            servingPlayer = 2
+            player1Score = player1Score + 1
+            sounds['score']:play()
+
+            if player1Score == 10 then
+                winningPlayer = 1
+                gameState = 'done'
+            else
+                gameState = 'serve'
+                ball:reset()
+            end
+        end
+    end
 
     gStateMachine:update(dt)
 
@@ -171,6 +289,10 @@ function love.draw()
     --push:start()
 
     love.graphics.draw(background, 0, 0)
+    player1:render()
+    player2:render()
+    ball:render()
+    boost:render()
 
     gStateMachine:render()
 

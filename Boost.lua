@@ -12,16 +12,14 @@
     scoring a point for the opponent.
 ]]
 
-Ball = Class{}
+Boost = Class{}
 
-
-function Ball:init(x, y)
-    self.ballImage = love.graphics.newImage('resources/fancy-ball.png')
-    self.vel = false
+function Boost:init(x, y, width, height)
+    self.view = true
     self.x = x
     self.y = y
-    self.width = self.ballImage:getWidth()
-    self.height = self.ballImage:getHeight()
+    self.width = width
+    self.height = height
 
     -- these variables are for keeping track of our velocity on both the
     -- X and Y axis, since the ball can move in two dimensions
@@ -33,45 +31,37 @@ end
     Expects a paddle as an argument and returns true or false, depending
     on whether their rectangles overlap.
 ]]
-function Ball:collides(paddle)
-    
+function Boost:collides(ball)
     -- first, check to see if the left edge of either is farther to the right
-    -- than the right edge of the other or paddle.x > self.x + self.width
-    if self.x > paddle.x + paddle.width or paddle.x > self.x + self.width then
+    -- than the right edge of the other
+    if self.x > ball.x + ball.width or ball.x > self.x + self.width then
         return false
     end
 
     -- then check to see if the bottom edge of either is higher than the top
-    -- edge of the other or paddle.y > self.y + self.height
-    if self.y > paddle.y + paddle.height or paddle.y > self.y + self.height then
+    -- edge of the other
+    if self.y > ball.y + ball.height or ball.y > self.y + self.height then
         return false
     end
 
     -- if the above aren't true, they're overlapping
     return true
-
 end
 
 --[[
     Places the ball in the middle of the screen, with no movement.
 ]]
-function Ball:reset()
-    self.x = VIRTUAL_WIDTH / 2 - 2
-    self.y = VIRTUAL_HEIGHT / 2 - 2
-    self.dx = 0
-    self.dy = 0
-end
 
-function Ball:update(dt)
-    if (self.vel) then
-      self.x = self.x + (self.dx * 3) * dt
-      self.y = self.y + (self.dy) * dt
-    else
-      self.x = self.x + self.dx * dt
-      self.y = self.y + self.dy * dt
+
+function Boost:update()
+    if (self.view) then
+      self.x = self.x + math.random(0,100)
+      self.y = self.y + math.random(0,100)
     end
 end
 
-function Ball:render()
-  love.graphics.draw(self.ballImage,self.x,self.y)
+function Boost:render()
+  if self.view then
+    love.graphics.rectangle('line', self.x , self.y, self.width, self.height)
+  end
 end

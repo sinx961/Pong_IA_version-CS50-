@@ -49,8 +49,7 @@ function PlayState:update(dt)
     -- slightly increasing it, then altering the dy based on the position
     -- at which it collided, then playing a sound effect
     if ball:collides(player1) then
-        ball.dx = -ball.dx * 1.03
-        ball.x = player1.x + 5
+        ball.dx = -ball.dx
 
         -- keep velocity going in the same direction, but randomize it
         if ball.dy < 0 then
@@ -62,8 +61,7 @@ function PlayState:update(dt)
         sounds['paddle_hit']:play()
     end
     if ball:collides(player2) then
-        ball.dx = -ball.dx * 1.03
-        ball.x = player2.x - 4
+        ball.dx = -ball.dx
 
         -- keep velocity going in the same direction, but randomize it
         if ball.dy < 0 then

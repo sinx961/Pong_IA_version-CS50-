@@ -50,18 +50,22 @@ require 'Paddle'
 require 'Ball'
 
 -- size of our actual window
-WINDOW_WIDTH = 1280
-WINDOW_HEIGHT = 720
+WINDOW_WIDTH = 800
+WINDOW_HEIGHT = 600
 
 -- size we're trying to emulate with push
-VIRTUAL_WIDTH = 432
-VIRTUAL_HEIGHT = 243
+VIRTUAL_WIDTH = 800
+VIRTUAL_HEIGHT = 600
 
 -- paddle movement speed
 PADDLE_SPEED = 200
 DIFFICULT = 5
 
 MAX_SCORE = 2
+
+
+--Background image for set playground
+local background = love.graphics.newImage('resources/fancy-court.png')
 
 --[[
     Called just once at the beginning of the game; used to set up
@@ -79,20 +83,10 @@ function love.load()
     -- seed the RNG so that calls to random are always random
     math.randomseed(os.time())
     -- initialize our nice-looking retro text fonts
-    smallFont = love.graphics.newFont('font.ttf', 8)
-    largeFont = love.graphics.newFont('font.ttf', 16)
-    scoreFont = love.graphics.newFont('font.ttf', 32)
+    smallFont = love.graphics.newFont('font.ttf', 26)
+    largeFont = love.graphics.newFont('font.ttf', 50)
+    scoreFont = love.graphics.newFont('font.ttf', 45)
     love.graphics.setFont(smallFont)
-
-
-    -- initialize our virtual resolution, which will be rendered within our
-    -- actual window no matter its dimensions
-    push:setupScreen(VIRTUAL_WIDTH, VIRTUAL_HEIGHT, WINDOW_WIDTH, WINDOW_HEIGHT, {
-        fullscreen = false,
-        resizable = true,
-        vsync = true,
-        canvas = false
-    })
 
     -- initialize state machine with all state-returning functions
     gStateMachine = StateMachine {
@@ -107,7 +101,7 @@ function love.load()
     -- initialize input table
     love.keyboard.keysPressed = {}
 
-        -- initialize score variables
+    -- initialize score variables
     player1Score = 0
     player2Score = 0
 
@@ -174,13 +168,13 @@ end
 ]]
 function love.draw()
     -- begin drawing with push, in our virtual resolution
-    push:start()
+    --push:start()
 
-    love.graphics.clear(40/255, 45/255, 52/255, 255/255)
+    love.graphics.draw(background, 0, 0)
 
     gStateMachine:render()
 
-    push:finish()
+    --push:finish()
 end
 
 --[[
